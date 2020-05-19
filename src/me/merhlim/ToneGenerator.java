@@ -3,35 +3,54 @@ package me.merhlim;
 import javax.sound.sampled.*;
 
 public class ToneGenerator {
+	
+	protected static final int SAMPLE_RATE = 44100;
 
-    public static int SAMPLE_RATE = 44100;
-    private static double BYTE_LIMIT = 127.0;
+	public void playTone(long freq, int volume, long duration, Mixer.Info mixinfo) throws LineUnavailableException {
+       final AudioFormat af = new AudioFormat(SAMPLE_RATE, 8, 1, true, true);
+       SourceDataLine line = AudioSystem.getSourceDataLine(af,mixinfo);
+       line.open(af, SAMPLE_RATE);
+       line.start();
+	   
+	   
+	   byte[] toneBuffer;
+	   int count;
+	   
+	   setVolume(line, volume);
+	   toneBuffer = createSinWaveBuffer(freq, duration);
+	   count = line.write(toneBuffer, 0, toneBuffer.length);
 
-    public static void playTone(double freq, double duration, double volume, Mixer.Info mixInfo) {
-        double[] sData = generateSoundData(freq, duration, volume);
-        byte[] frequencyList = new byte[sData.length];
-        for (int i = 0; i < sData.length; i++) {
-            frequencyList[i] = (byte) sData[i];
-        }
-        try {
-            AudioFormat af = new AudioFormat(SAMPLE_RATE, 8, 1, true, true);
-            SourceDataLine line = AudioSystem.getSourceDataLine(af,mixInfo);
-            line.open(af, SAMPLE_RATE);
-            line.start();
-            line.write(frequencyList, 0, frequencyList.length);
-            line.drain();
-            line.close();
-        } catch (LineUnavailableException e) {
-            e.printStackTrace();
-        }
+
+       line.drain();
+       line.close();
     }
+	
+	public byte[] createSinWaveBuffer(double freq, long ms) {
+       int samples = (int)((ms * SAMPLE_RATE) / 1000);
+       byte[] output = new byte[samples];
+           //
+       double period = (double)SAMPLE_RATE / freq;
+       for (int i = 0; i < output.length; i++) {
+           double angle = 2.0 * Math.PI * i / period;
+           output[i] = (byte)(Math.sin(angle) * 127f);  
+		}
 
-    public static double[] generateSoundData(double freq, double duration, double volume) {
-        double[] dataList = new double[(int) (duration * SAMPLE_RATE)];
-        for (int i = 0; i < dataList.length; i++) {
-            dataList[i] = (Math.sin(2.0 * Math.PI * i / (double) (SAMPLE_RATE / freq))) * BYTE_LIMIT * (int) (duration * SAMPLE_RATE) * volume;
-        }
-        return dataList;
-    }
+       return output;
+   }
+   
+   private static void setVolume(SourceDataLine source,int volume){
+	  try {
+		FloatControl gainControl=(FloatControl)source.getControl(FloatControl.Type.MASTER_GAIN);
+		BooleanControl muteControl=(BooleanControl)source.getControl(BooleanControl.Type.MUTE);
+		if (volume == 0) {
+		  muteControl.setValue(true);
+		} else {
+		  muteControl.setValue(false);
+		  gainControl.setValue((float)(Math.log(volume / 100d) / Math.log(10.0) * 20.0));
+		}
+	  }
+	 catch (Exception e) {}
+}
+ 
 
 }

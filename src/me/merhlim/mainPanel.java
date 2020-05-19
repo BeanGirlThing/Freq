@@ -23,6 +23,8 @@ public class mainPanel {
 
     String callsign;
 
+    ToneGenerator toneGenerator = new ToneGenerator();
+
     private JPanel basePanel;
     private JPanel dataPanel;
     private JPanel InteractivePanel;
@@ -151,91 +153,48 @@ public class mainPanel {
 
     public void transmitCallsign() {
         JSONObject toneList = (JSONObject) dataSheet.get("toneBase");
-        rawTone((long) toneList.get("DATA"),2);
-        playMessage(callsign);
-        rawTone((long) toneList.get("DATA"),2);
+        try {
+            tone((long) toneList.get("DATA"), 1000);
+            playMessage(callsign);
+            tone((long) toneList.get("DATA"), 1000);
+        } catch (LineUnavailableException e) {
+            e.printStackTrace();
+            System.exit(-1);
+        }
 
     }
 
-    public void playMessage(String message){
+    public void playMessage(String message) {
         message.replaceAll("\\s","");
         JSONObject toneList = (JSONObject) dataSheet.get("toneBase");
         char[] messageCharArray = message.toCharArray();
         double[] darr = new double[messageCharArray.length];
-        for (int i = 0; i < messageCharArray.length; i++) {
-            char character = messageCharArray[i];
-            if (character == '#'){
-                rawTone((long) toneList.get("DATA"),2);
-            } else {
-                String tmpC = String.valueOf(character);
-                tmpC = tmpC.toUpperCase();
-                double frequency = (long) toneList.get(tmpC);
-                darr[i] = frequency;
-            }
-        }
-
         try {
-            tone(darr);
+            for (int i = 0; i < messageCharArray.length; i++) {
+                char character = messageCharArray[i];
+                if (character == '#') {
+                    tone((long) toneList.get("DATA"), 2);
+                } else {
+                    String tmpC = String.valueOf(character);
+                    tmpC = tmpC.toUpperCase();
+                    long frequency = (long) toneList.get(tmpC);
+                    tone(frequency, (long) dataSheet.get("TimePerToneMs"));
+
+                }
+            }
         } catch (LineUnavailableException e) {
             e.printStackTrace();
+            System.exit(-1);
         }
     }
 
-    public void rawTone(double frequency, double duration) {
-
-        float normalisedValue = inverseLerp(0,100,volumeSlider.getValue());
-        float volume = lerp(0,1,normalisedValue);
-
-        ToneGenerator tg = new ToneGenerator();
-
-        comboboxItem aitem = (comboboxItem) audioMixerBox.getSelectedItem();
 
 
-        tg.playTone(frequency, duration, volume, (Mixer.Info) aitem.value);
 
-    }
-
-    public void tone(double[] frequency) throws LineUnavailableException {
-
-        float normalisedValue = inverseLerp(0,100,volumeSlider.getValue());
-        float volume = lerp(0,1,normalisedValue);
-
-        ToneGenerator tg = new ToneGenerator();
-
-        comboboxItem aitem = (comboboxItem) audioMixerBox.getSelectedItem();
-
-        ArrayList<double[]> barr = new ArrayList<>();
-
-        for(double freq : frequency) {
-            double[] tmpFreq = tg.generateSoundData(freq,(double)dataSheet.get("TimePerToneS"),volume);
-            barr.add(tmpFreq);
-        }
-
-        final AudioFormat af = new AudioFormat(tg.SAMPLE_RATE, 8, 1, true, true);
-        SourceDataLine line = AudioSystem.getSourceDataLine(af,(Mixer.Info) aitem.value);
-
-        for(int i = 0; i <= barr.size()-1; i++) {
-
-            line.open(af, tg.SAMPLE_RATE);
-            line.start();
-
-            byte[] freqData = new byte[barr.get(i).length];
-            for (int a = 0; a < barr.get(i).length; a++) {
-                freqData[a] = (byte) barr.get(i)[a];
-            }
-            line.write(freqData, 0, freqData.length);
-            line.drain();
-
-            line.close();
-        }
-    }
-
-    public float lerp(int a, int b, float t) {
-        return a + (b - a) * t;
-    }
-
-    public float inverseLerp(float a, float b, float lerpValue) {
-        return (lerpValue - a) / (b - a);
+    public void tone(long frequency, long duration) throws LineUnavailableException {
+        comboboxItem it = (comboboxItem) audioMixerBox.getSelectedItem();
+        Mixer.Info mInfo = (Mixer.Info) it.value;
+        toneGenerator.playTone(frequency,volumeSlider.getValue(),duration,mInfo);
     }
 
     private static void getDataSheet() throws IOException, ParseException {

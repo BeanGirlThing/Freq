@@ -1,5 +1,5 @@
 {
-  "TimePerToneS": 0.2,
+  "TimePerToneMs": 100,
   "CQCall": "CQ CQ CQ {DATA}{CALLSIGN}{DATA} CQ CQ CQ FREQ CQ CQ CQ {DATA}{CALLSIGN}{DATA} CQ CQ CQ",
   "toneBase": {
     "DATA": 200,
